@@ -2,6 +2,7 @@ package com.example.todo
 
 import android.app.DatePickerDialog
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -73,8 +74,50 @@ class MainActivity : AppCompatActivity() {
         }
 
         listView.setOnItemClickListener { _, _, position, _ ->
-            val task = adapter.getItem(position)
-            Toast.makeText(this, "Нажмите и удерживайте, чтобы удалить: ${task?.title}", Toast.LENGTH_SHORT).show()
+            val task = todos[position]
+
+            val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_edit_task, null)
+            val editTitle = dialogView.findViewById<EditText>(R.id.edit_task_title)
+            val editDateButton = dialogView.findViewById<Button>(R.id.edit_task_date_button)
+
+            editTitle.setText(task.title)
+            var editedDateMillis = task.deadline
+            val sdf = SimpleDateFormat("dd.MM.yyyy", Locale.getDefault())
+            editDateButton.text = "Дата: ${sdf.format(Date(task.deadline))}"
+
+            editDateButton.setOnClickListener {
+                val calendar = Calendar.getInstance()
+                calendar.timeInMillis = editedDateMillis
+                val y = calendar.get(Calendar.YEAR)
+                val m = calendar.get(Calendar.MONTH)
+                val d = calendar.get(Calendar.DAY_OF_MONTH)
+
+                val datePicker = DatePickerDialog(this, { _, year, month, day ->
+                    val newCalendar = Calendar.getInstance()
+                    newCalendar.set(year, month, day, 0, 0, 0)
+                    editedDateMillis = newCalendar.timeInMillis
+                    editDateButton.text = "Дата: ${day}.${month + 1}.$year"
+                }, y, m, d)
+
+                datePicker.show()
+            }
+
+            AlertDialog.Builder(this)
+                .setTitle("Редактировать задачу")
+                .setView(dialogView)
+                .setPositiveButton("Сохранить") { _, _ ->
+                    val newTitle = editTitle.text.toString().trim()
+                    if (newTitle.isNotEmpty()) {
+                        todos[position] = Task(newTitle, editedDateMillis)
+                        todos.sortBy { it.deadline }
+                        adapter.notifyDataSetChanged()
+                        Toast.makeText(this, "Задача обновлена", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this, "Название не может быть пустым", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                .setNegativeButton("Отмена", null)
+                .show()
         }
 
         listView.setOnItemLongClickListener { _, _, position, _ ->
